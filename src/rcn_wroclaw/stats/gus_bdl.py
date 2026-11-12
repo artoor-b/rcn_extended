@@ -27,9 +27,21 @@ SUBJECTS = {"P3783": "units_sold_market", "P3787": "median_price_m2_market"}
 COUNTY_NAME = "Powiat m. Wrocław"
 
 
+def client_id(env_file: Path = config.PROJECT_ROOT / ".env") -> str | None:
+    """BDL key from the environment or from ``BDL_CLIENT_ID=...`` in the git-ignored .env."""
+    if cid := os.environ.get("BDL_CLIENT_ID"):
+        return cid.strip()
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            key, sep, value = line.partition("=")
+            if sep and key.strip() == "BDL_CLIENT_ID" and value.strip():
+                return value.strip().strip("'\"")
+    return None
+
+
 def _client() -> httpx.Client:
     headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
-    if cid := os.environ.get("BDL_CLIENT_ID"):
+    if cid := client_id():
         headers["X-ClientId"] = cid
     return httpx.Client(base_url=config.BDL_API_URL, headers=headers, timeout=60)
 

@@ -9,7 +9,7 @@ from shapely.geometry import Point, box
 
 from rcn_wroclaw.geo.boundaries import parse_gml_polygons
 from rcn_wroclaw.osm.poi import CATEGORIES, classify
-from rcn_wroclaw.stats.gus_bdl import tidy
+from rcn_wroclaw.stats.gus_bdl import client_id, tidy
 from rcn_wroclaw.transit.gtfs import active_services, representative_weekday, stop_service_levels
 
 POLY_GML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -151,3 +151,13 @@ def test_gtfs_regular_service_rule_drops_rare_pairs(gtfs_dir: Path):
     g = stop_service_levels(gtfs_dir, min_departures=2).set_index("stop_id")
     assert g.loc["1", "routes"] == ["T1"]
     assert g.loc["2", "dep_day"] == 0
+
+
+def test_bdl_client_id_from_env_file(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("BDL_CLIENT_ID", raising=False)
+    env = tmp_path / ".env"
+    assert client_id(env) is None
+    env.write_text("# comment\nOTHER=1\nBDL_CLIENT_ID = 'abc-123'\n")
+    assert client_id(env) == "abc-123"
+    monkeypatch.setenv("BDL_CLIENT_ID", "from-env")
+    assert client_id(env) == "from-env"

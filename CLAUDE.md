@@ -21,6 +21,10 @@ bootstrap confidence intervals and SHAP feature importance.
 - Verify that a data source is current/available before relying on it; if unavailable,
   propose a replacement and ask.
 
+## Environment notes (macOS)
+- LightGBM needs OpenMP: `brew install libomp` (installed 2026-11-13; Xcode license accepted).
+- GUS BDL key: put `BDL_CLIENT_ID=...` in the git-ignored `.env` (never in code or chat).
+
 ## Conventions
 - **One CRS for all geometry: EPSG:2180** (PUWG 1992). Geometry columns hold
   (easting, northing). Reproject inputs on load.
@@ -46,6 +50,15 @@ bootstrap confidence intervals and SHAP feature importance.
   functions must work for arbitrary points (web app predictions).
 - GTFS line counts use only (line, stop) pairs with regular service (≥4 departures and ≥20%
   of the line's median per-stop departures) – removes depot runs.
+- Cleaning rules (agreed 2026-11-12): flats only, `wolnyRynek` only, share 1/1, exactly one
+  flat per transaction, deeds from 2023-01, area 15–300 m², price/m² 3–50k PLN and 0.5% tails
+  trimmed per year; price = `lok_cena_brutto` (fallback `tran_cena_brutto` only for one-unit
+  transactions); parking remarks kept as flag `has_parking_note`.
+- Baseline "RCN only" includes osiedle; extra variants: without osiedle, + location,
+  + location + x/y. Target log(price/m²); metrics on PLN/m² and total price.
+- Uncertainty: never i.i.d. bootstrap over transactions – resample buildings (temporal test)
+  or 1 km blocks (spatial CV). Report "new locations" (no training transactions) separately:
+  location features can act as building identifiers for repeat-selling buildings.
 - Validation must avoid leakage: temporal split (train older / test newer) + spatial CV.
 - Ruff for lint/format (line length 100).
 
@@ -69,6 +82,14 @@ src/rcn_wroclaw/
   features/network.py    OSM walk graph (scipy sparse) + multi-source Dijkstra walking distances
   features/build.py      assembles data/processed/location_features.parquet (1 row / location)
   reports/features.py    stage-3 report (03_features.md)
+  clean/rcn.py           cleaning rules (CleaningConfig) + per-step log
+  model/dataset.py       model dataset, feature variants, train-only monthly price index
+  model/models.py        Ridge pipeline (log1p + scaling + one-hot) and LightGBM wrapper
+  model/evaluate.py      temporal hold-out (test 2026) + spatial GroupKFold (1 km blocks)
+  reports/models.py      stage-4 report (04_models.md)
+  model/bootstrap.py     paired cluster bootstrap (clusters = buildings / 1 km blocks)
+  model/explain.py       LightGBM TreeSHAP (pred_contrib), feature groups; saves models/*.txt
+  reports/evaluation.py  stage-5 report (05_evaluation.md)
 tests/                 pytest; fixtures/ with synthetic GML
 reports/               generated reports (01_rcn_eda.md, figures/)
 notebooks/             exploration only
@@ -88,6 +109,10 @@ uv run rcn fetch-gus                      # GUS BDL (set BDL_CLIENT_ID to avoid 
 uv run rcn context-report                 # -> reports/02_context_data.md
 uv run rcn build-features [--osm-snapshot D] [--no-network]  # -> data/processed/location_features.parquet
 uv run rcn features-report                # -> reports/03_features.md
+uv run rcn build-dataset                  # cleaning -> data/processed/model_dataset.parquet
+uv run rcn train-eval [--splits temporal,spatial]  # -> predictions / metrics parquet
+uv run rcn models-report                  # -> reports/04_models.md
+uv run rcn evaluation-report              # bootstrap + SHAP + maps -> reports/05_evaluation.md
 uv run pytest                             # tests
 uv run ruff check src tests && uv run ruff format src tests
 ```
@@ -113,6 +138,6 @@ under-represents nurseries (59) and hospitals (16); some point POI are double-ma
 1. ✅ Repo skeleton, RCN download, EDA report.
 2. ✅ POI / transport / boundary data ingestion (GUS completeness check pending).
 3. ✅ Feature engineering (distances, buffer counts, GTFS service levels, network distances).
-4. Cleaning rules + modelling (Ridge, LightGBM × {RCN only, RCN + location}).
-5. Evaluation (MAE, RMSE, MAPE, R², bootstrap CIs, SHAP).
+4. ✅ Cleaning rules + modelling (Ridge, LightGBM × 4 feature variants).
+5. ✅ Evaluation (MAE, RMSE, MAPE, R², cluster-bootstrap CIs, SHAP, error maps).
 6. Web app (Next.js + TypeScript + MapLibre GL) – design data/API first.

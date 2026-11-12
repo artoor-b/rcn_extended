@@ -1,4 +1,4 @@
-.PHONY: setup fetch-rcn fetch-rcn-sample parse-rcn eda rcn-all boundaries gtfs osm gus context context-all features features-report test lint fmt
+.PHONY: setup fetch-rcn fetch-rcn-sample parse-rcn eda rcn-all boundaries gtfs osm gus context context-all features features-report dataset train models-report evaluation model-all test lint fmt
 
 setup:
 	uv sync
@@ -39,6 +39,20 @@ features:
 
 features-report:
 	uv run rcn features-report
+
+dataset:
+	uv run rcn build-dataset
+
+train:
+	uv run rcn train-eval
+
+models-report:
+	uv run rcn models-report
+
+evaluation:
+	uv run rcn evaluation-report
+
+model-all: dataset train models-report evaluation
 
 test:
 	uv run pytest

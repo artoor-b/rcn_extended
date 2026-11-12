@@ -206,5 +206,78 @@ def features_report(
     typer.echo(f"Report -> {path}")
 
 
+@app.command("build-dataset")
+def build_dataset_cmd() -> None:
+    """Clean transactions and join location features -> data/processed/model_dataset.parquet."""
+    from rcn_wroclaw.model.dataset import DATASET_PATH, build_dataset
+
+    df, log = build_dataset()
+    df.to_parquet(DATASET_PATH)
+    log.to_frame().to_parquet(config.PROCESSED_DIR / "cleaning_log.parquet")
+    typer.echo(log.to_frame().to_string(index=False))
+    typer.echo(f"{len(df):,} transactions -> {DATASET_PATH}")
+
+
+@app.command("train-eval")
+def train_eval(
+    splits: str = typer.Option(
+        "temporal,spatial,temporal_trend", help="Comma list: temporal, spatial, temporal_trend."
+    ),
+) -> None:
+    """Train Ridge + LightGBM for all feature variants; save predictions and metrics."""
+    from rcn_wroclaw.features.build import FEATURES_PATH
+    from rcn_wroclaw.model.dataset import DATASET_PATH, location_columns, variants
+    from rcn_wroclaw.model.evaluate import (
+        IMPORTANCE_PATH,
+        PREDICTIONS_PATH,
+        SplitResult,
+        spatial_cv,
+        summarize,
+        temporal_holdout,
+    )
+
+    df = pd.read_parquet(DATASET_PATH)
+    loc_cols = location_columns(gpd.read_parquet(FEATURES_PATH))
+    var = variants(loc_cols)
+    res = SplitResult()
+    chosen = {s.strip() for s in splits.split(",")}
+    if "temporal" in chosen:
+        temporal_holdout(df, var, res)
+    if "spatial" in chosen:
+        spatial_cv(df, var, res)
+    if "temporal_trend" in chosen:  # sensitivity: index extrapolated with the recent trend
+        sub = {k: var[k] for k in ("rcn", "rcn_lok")}
+        temporal_holdout(df, sub, res, extrapolate="trend")
+    pred = pd.concat(res.predictions, ignore_index=True)
+    pred.to_parquet(PREDICTIONS_PATH)
+    pd.concat(res.importance, ignore_index=True).to_parquet(IMPORTANCE_PATH)
+    summary = summarize(pred)
+    summary.to_parquet(config.PROCESSED_DIR / "metrics.parquet")
+    cols = ["split", "model", "variant", "MAE", "RMSE", "MAPE", "R2"]
+    typer.echo(summary[cols].round(3).to_string(index=False))
+
+
+@app.command("models-report")
+def models_report(
+    out: Path = typer.Option(config.REPORTS_DIR / "04_models.md", help="Output Markdown."),
+) -> None:
+    """Report on cleaning, splits and model comparison (stage 4)."""
+    from rcn_wroclaw.reports.models import build_report
+
+    path = build_report(out, out.parent / "figures")
+    typer.echo(f"Report -> {path}")
+
+
+@app.command("evaluation-report")
+def evaluation_report(
+    out: Path = typer.Option(config.REPORTS_DIR / "05_evaluation.md", help="Output Markdown."),
+) -> None:
+    """Cluster-bootstrap CIs, SHAP and error maps (stage 5)."""
+    from rcn_wroclaw.reports.evaluation import build_report
+
+    path = build_report(out, out.parent / "figures")
+    typer.echo(f"Report -> {path}")
+
+
 if __name__ == "__main__":
     app()
