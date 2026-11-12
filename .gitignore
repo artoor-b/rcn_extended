@@ -1,0 +1,30 @@
+# Data (raw/interim/processed are reproducible from the pipeline)
+data/raw/*
+data/interim/*
+data/processed/*
+!data/**/.gitkeep
+
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OSMnx / HTTP caches
+cache/
+
+# Secrets / local env
+.env
+.env.*
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

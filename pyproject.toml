@@ -1,0 +1,58 @@
+[project]
+name = "rcn-wroclaw"
+version = "0.1.0"
+description = "Does location/amenity accessibility improve transaction price prediction for Wrocław apartments (RCN)?"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "geopandas>=1.0",
+    "shapely>=2.0",
+    "pyproj>=3.6",
+    "pyogrio>=0.9",
+    "osmnx>=2.0",
+    "pandas>=2.2",
+    "polars>=1.0",
+    "pyarrow>=16",
+    "duckdb>=1.0",
+    "scikit-learn>=1.5",
+    "lightgbm>=4.3",
+    "shap>=0.45",
+    "matplotlib>=3.9",
+    "typer>=0.12",
+    "httpx>=0.27",
+    "lxml>=5.2",
+    "tenacity>=8.3",
+    "tabulate>=0.9",
+]
+
+[project.scripts]
+rcn = "rcn_wroclaw.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "ruff>=0.5",
+    "ipykernel>=6.29",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rcn_wroclaw"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Option", "typer.Argument"]

@@ -1,0 +1,1 @@
+"""OpenStreetMap points of interest."""
